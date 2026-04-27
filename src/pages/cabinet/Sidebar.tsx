@@ -16,7 +16,7 @@ export default function Sidebar({ active, sidebarOpen, setActive, setSidebarOpen
         border-r border-border transition-transform duration-300
         ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
       `}
-      style={{ background: "hsl(220,20%,5%)" }}
+      style={{ background: "hsl(var(--sidebar-background))" }}
     >
       {/* Logo */}
       <div className="px-5 pt-6 pb-4">

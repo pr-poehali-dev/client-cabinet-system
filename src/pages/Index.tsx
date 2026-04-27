@@ -17,6 +17,13 @@ import {
 export default function Index() {
   const [active, setActive] = useState<Section>("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [theme, setTheme] = useState<"dark" | "light">("dark");
+
+  const toggleTheme = () => {
+    const next = theme === "dark" ? "light" : "dark";
+    setTheme(next);
+    document.documentElement.classList.toggle("light", next === "light");
+  };
 
   const renderSection = () => {
     switch (active) {
@@ -48,7 +55,7 @@ export default function Index() {
       <main className="flex-1 flex flex-col overflow-hidden">
         <header
           className="flex-shrink-0 h-14 flex items-center px-4 lg:px-6 border-b border-border"
-          style={{ background: "hsla(220,20%,6%,0.8)", backdropFilter: "blur(20px)" }}
+          style={{ background: "hsla(var(--background),0.8)", backdropFilter: "blur(20px)" }}
         >
           <button className="lg:hidden p-2 rounded-lg hover:bg-secondary mr-2" onClick={() => setSidebarOpen(true)}>
             <Icon name="Menu" size={18} />
@@ -64,6 +71,13 @@ export default function Index() {
               <Icon name="Bell" size={18} />
               <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full"
                 style={{ background: "hsl(0,80%,60%)" }} />
+            </button>
+            <button
+              className="p-2 rounded-xl hover:bg-secondary transition-colors"
+              onClick={toggleTheme}
+              title={theme === "dark" ? "Светлая тема" : "Тёмная тема"}
+            >
+              <Icon name={theme === "dark" ? "Sun" : "Moon"} size={18} />
             </button>
             <button className="p-2 rounded-xl hover:bg-secondary transition-colors">
               <Icon name="Search" size={18} />
