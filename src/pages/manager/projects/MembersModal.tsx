@@ -1,15 +1,11 @@
 import { useState, useEffect, useCallback } from "react";
 import Icon from "@/components/ui/icon";
+import { pFetch, getSession, Project, Member, ROLE_COLORS } from "./projectsApi";
 import FUNC_URLS from "../../../../backend/func2url.json";
-import { Project, Member, ROLE_COLORS, pFetch, getSession } from "./types";
 
-interface MembersModalProps {
-  project: Project;
-  onClose: () => void;
-  onChanged: () => void;
-}
-
-export default function MembersModal({ project, onClose, onChanged }: MembersModalProps) {
+export function MembersModal({ project, onClose, onChanged }: {
+  project: Project; onClose: () => void; onChanged: () => void;
+}) {
   const [members, setMembers] = useState<Member[]>([]);
   const [available, setAvailable] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
