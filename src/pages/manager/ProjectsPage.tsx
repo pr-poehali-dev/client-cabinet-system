@@ -105,16 +105,18 @@ export default function ProjectsPage({ user }: ProjectsPageProps) {
   const [membersProject, setMembersProject] = useState<Project | null>(null);
   const [joinProject, setJoinProject] = useState<Project | null>(null);
   const [search, setSearch] = useState("");
+  const [showArchived, setShowArchived] = useState(false);
 
   const isEditor = !!user && ["admin", "manager", "head"].includes(user.role_code);
+  const isAdmin = user?.role_code === "admin";
 
   const load = useCallback(async () => {
     setLoading(true);
-    const res = await pFetch();
+    const res = await pFetch(showArchived ? "?archived=1" : "");
     const data = await res.json();
     setProjects(data.projects || []);
     setLoading(false);
-  }, []);
+  }, [showArchived]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -141,12 +143,26 @@ export default function ProjectsPage({ user }: ProjectsPageProps) {
               className="bg-secondary/60 rounded-xl pl-9 pr-4 py-2 text-sm outline-none border border-border focus:border-primary transition-colors w-44" />
           </div>
           {isEditor && (
-            <button onClick={() => setShowCreate(true)}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-opacity hover:opacity-90"
-              style={{ background: "hsl(195,100%,40%)", color: "white" }}>
-              <Icon name="Plus" size={16} />
-              Новый проект
-            </button>
+            <>
+              <button onClick={() => setShowArchived((v) => !v)}
+                className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold transition-all"
+                style={{
+                  background: showArchived ? "hsla(30,100%,50%,0.15)" : "transparent",
+                  color: showArchived ? "hsl(30,100%,50%)" : "hsl(215,15%,55%)",
+                  border: `1px solid ${showArchived ? "hsla(30,100%,50%,0.3)" : "hsl(220,15%,16%)"}`,
+                }}>
+                <Icon name="Archive" size={14} />
+                Архив
+              </button>
+              {!showArchived && (
+                <button onClick={() => setShowCreate(true)}
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-opacity hover:opacity-90"
+                  style={{ background: "hsl(195,100%,40%)", color: "white" }}>
+                  <Icon name="Plus" size={16} />
+                  Новый проект
+                </button>
+              )}
+            </>
           )}
         </div>
       </div>
@@ -199,10 +215,19 @@ export default function ProjectsPage({ user }: ProjectsPageProps) {
             <div key={p.id} className="relative group">
               <ProjectCard
                 p={p}
-                onEdit={isEditor ? () => setEditProject(p) : undefined}
+                onEdit={isEditor && !showArchived ? () => setEditProject(p) : undefined}
                 onArchive={isEditor ? () => setArchiveProject(p) : undefined}
-                onMembers={isEditor ? () => setMembersProject(p) : undefined}
+                onMembers={isEditor && !showArchived ? () => setMembersProject(p) : undefined}
               />
+              {/* Метка «Архив» */}
+              {showArchived && (
+                <div className="absolute top-4 right-4 flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-lg"
+                  style={{ background: "hsla(30,100%,50%,0.15)", color: "hsl(30,100%,50%)" }}>
+                  <Icon name="Archive" size={11} />
+                  Архив
+                </div>
+              )}
+              {/* Кнопка «Подать заявку» для обычных пользователей */}
               {!isEditor && (
                 <button
                   onClick={() => setJoinProject(p)}

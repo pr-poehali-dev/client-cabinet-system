@@ -3,13 +3,15 @@ import FUNC_URLS from "../../../../backend/func2url.json";
 const SESSION_KEY = "cabinet_session";
 export function getSession() { return localStorage.getItem(SESSION_KEY) || ""; }
 
-export function pFetch(opts: RequestInit = {}) {
-  return fetch(FUNC_URLS.projects, {
-    ...opts,
+export function pFetch(pathOrOpts: string | RequestInit = "", opts: RequestInit = {}) {
+  const path = typeof pathOrOpts === "string" ? pathOrOpts : "";
+  const options = typeof pathOrOpts === "object" ? pathOrOpts : opts;
+  return fetch(FUNC_URLS.projects + path, {
+    ...options,
     headers: {
       "Content-Type": "application/json",
       "X-Session-Id": getSession(),
-      ...((opts.headers as Record<string, string>) || {}),
+      ...((options.headers as Record<string, string>) || {}),
     },
   });
 }

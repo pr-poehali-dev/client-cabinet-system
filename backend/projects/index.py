@@ -110,52 +110,42 @@ def handler(event: dict, context) -> dict:
     # ── GET: список проектов ──────────────────────────────────────────────────
     if method == "GET":
         qs2 = event.get("queryStringParameters") or {}
-        show_archived = qs2.get("archived") == "1" and user["role"] in ("admin", "head", "manager")
-        # admin видит все; менеджер/руководитель — только не архивированные (если не запросил archived);
-        # участник — только свой объект
-        if user["role"] == "admin":
-            where_clause = "o.is_active = TRUE" if not show_archived else "o.archived_at IS NOT NULL AND o.is_active = TRUE"
-        elif user["role"] in ("head", "manager"):
-            where_clause = ("o.archived_at IS NOT NULL AND o.is_active = TRUE" if show_archived
-                            else "o.is_active = TRUE AND o.archived_at IS NULL")
-        else:
-            # Остальные роли видят только свой объект
-            where_clause = "o.is_active = TRUE AND o.id = %s"
+        show_archived = qs2.get("archived") == "1"
 
-        if user["role"] not in ("admin", "head", "manager"):
+        BASE_SELECT = f"""
+            SELECT o.id, o.name, o.address, o.description,
+                   o.area_m2, o.started_at, o.deadline_at,
+                   o.progress_pct, o.is_active, o.created_at,
+                   u.full_name AS created_by_name,
+                   COUNT(DISTINCT m.id) AS members_count,
+                   o.archived_at
+            FROM {SCHEMA}.objects o
+            LEFT JOIN {SCHEMA}.users u ON u.id = o.created_by
+            LEFT JOIN {SCHEMA}.users m ON m.object_id = o.id AND m.is_active = TRUE
+        """
+
+        if user["role"] == "admin":
+            # Admin: все активные; с ?archived=1 — только архивные
+            if show_archived:
+                cur.execute(BASE_SELECT + "WHERE o.is_active = TRUE AND o.archived_at IS NOT NULL GROUP BY o.id, u.full_name ORDER BY o.created_at DESC")
+            else:
+                cur.execute(BASE_SELECT + "WHERE o.is_active = TRUE GROUP BY o.id, u.full_name ORDER BY o.created_at DESC")
+
+        elif user["role"] in ("head", "manager"):
+            # Менеджер/руководитель: только не архивные; с ?archived=1 — архивные
+            if show_archived:
+                cur.execute(BASE_SELECT + "WHERE o.is_active = TRUE AND o.archived_at IS NOT NULL GROUP BY o.id, u.full_name ORDER BY o.created_at DESC")
+            else:
+                cur.execute(BASE_SELECT + "WHERE o.is_active = TRUE AND o.archived_at IS NULL GROUP BY o.id, u.full_name ORDER BY o.created_at DESC")
+
+        else:
+            # Остальные роли: только свой объект (независимо от archived_at — проект их, доступ сохраняется)
             object_id = user.get("object_id")
             if not object_id:
                 conn.close()
                 return ok({"projects": []})
-            cur.execute(f"""
-                SELECT o.id, o.name, o.address, o.description,
-                       o.area_m2, o.started_at, o.deadline_at,
-                       o.progress_pct, o.is_active, o.created_at,
-                       u.full_name AS created_by_name,
-                       COUNT(DISTINCT m.id) AS members_count,
-                       o.archived_at
-                FROM {SCHEMA}.objects o
-                LEFT JOIN {SCHEMA}.users u ON u.id = o.created_by
-                LEFT JOIN {SCHEMA}.users m ON m.object_id = o.id AND m.is_active = TRUE
-                WHERE {where_clause}
-                GROUP BY o.id, u.full_name
-                ORDER BY o.created_at DESC
-            """, (object_id,))
-        else:
-            cur.execute(f"""
-                SELECT o.id, o.name, o.address, o.description,
-                       o.area_m2, o.started_at, o.deadline_at,
-                       o.progress_pct, o.is_active, o.created_at,
-                       u.full_name AS created_by_name,
-                       COUNT(DISTINCT m.id) AS members_count,
-                       o.archived_at
-                FROM {SCHEMA}.objects o
-                LEFT JOIN {SCHEMA}.users u ON u.id = o.created_by
-                LEFT JOIN {SCHEMA}.users m ON m.object_id = o.id AND m.is_active = TRUE
-                WHERE {where_clause}
-                GROUP BY o.id, u.full_name
-                ORDER BY o.created_at DESC
-            """)
+            cur.execute(BASE_SELECT + "WHERE o.is_active = TRUE AND o.id = %s GROUP BY o.id, u.full_name ORDER BY o.created_at DESC", (object_id,))
+
         rows = cur.fetchall()
         conn.close()
         return ok({"projects": [{
