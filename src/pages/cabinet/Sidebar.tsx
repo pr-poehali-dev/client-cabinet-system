@@ -1,6 +1,7 @@
 import Icon from "@/components/ui/icon";
 import { NAV_ITEMS, Section } from "./data";
 import { User } from "../Login";
+import { useMyProject } from "@/hooks/useMyProject";
 
 const LOGO = "https://cdn.poehali.dev/projects/bde71961-0812-45ae-89b3-4231a85c07a4/bucket/eb845745-b317-4d39-b2a4-2fe646b5447f.png";
 
@@ -18,6 +19,12 @@ function getInitials(name: string) {
 }
 
 export default function Sidebar({ active, sidebarOpen, setActive, setSidebarOpen, user, onLogout }: SidebarProps) {
+  const { project, projects, loading } = useMyProject();
+
+  const projectName = project?.name
+    ?? (projects.length > 0 ? `${projects.length} объектов` : null);
+  const projectPct = project?.progress_pct ?? null;
+
   return (
     <aside
       className={`
@@ -41,17 +48,32 @@ export default function Sidebar({ active, sidebarOpen, setActive, setSidebarOpen
           className="mt-4 px-3 py-2.5 rounded-xl border border-border"
           style={{ background: "rgba(255,255,255,0.03)" }}
         >
-          <div className="text-xs text-muted-foreground">Ваш объект</div>
-          <div className="font-semibold text-sm mt-0.5">Дом 180 м² · Краснодар</div>
-          <div className="flex items-center gap-1.5 mt-1.5">
-            <div className="h-1.5 flex-1 bg-secondary rounded-full overflow-hidden">
-              <div
-                className="h-full w-[58%] rounded-full"
-                style={{ background: "linear-gradient(90deg, hsl(195,100%,50%), hsl(265,90%,65%))" }}
-              />
-            </div>
-            <span className="text-xs font-bold" style={{ color: "hsl(195,100%,50%)" }}>58%</span>
+          <div className="text-xs text-muted-foreground">
+            {user.has_global_access ? "Все объекты" : "Ваш объект"}
           </div>
+          {loading ? (
+            <div className="h-4 w-32 bg-secondary rounded animate-pulse mt-1" />
+          ) : (
+            <div className="font-semibold text-sm mt-0.5 truncate">
+              {projectName ?? "Не назначен"}
+            </div>
+          )}
+          {projectPct !== null && (
+            <div className="flex items-center gap-1.5 mt-1.5">
+              <div className="h-1.5 flex-1 bg-secondary rounded-full overflow-hidden">
+                <div
+                  className="h-full rounded-full"
+                  style={{
+                    width: `${projectPct}%`,
+                    background: "linear-gradient(90deg, hsl(195,100%,50%), hsl(265,90%,65%))"
+                  }}
+                />
+              </div>
+              <span className="text-xs font-bold" style={{ color: "hsl(195,100%,50%)" }}>
+                {projectPct}%
+              </span>
+            </div>
+          )}
         </div>
       </div>
 
