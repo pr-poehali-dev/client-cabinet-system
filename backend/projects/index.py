@@ -158,8 +158,11 @@ def handler(event: dict, context) -> dict:
             "archived_at": str(r[12]) if r[12] else None,
         } for r in rows]})
 
-    # ── POST: создать проект ──────────────────────────────────────────────────
+    # ── POST: создать проект (только manager) ────────────────────────────────
     if action == "create":
+        if user["role"] != "manager":
+            conn.close()
+            return err("Создавать проекты может только менеджер проекта", 403)
         name = (body.get("name") or "").strip()
         address = (body.get("address") or "").strip()
         description = (body.get("description") or "").strip() or None
@@ -272,23 +275,118 @@ def handler(event: dict, context) -> dict:
         conn.close()
         return ok({"ok": True})
 
-    # ── POST: добавить участника в проект ────────────────────────────────────
+    # ── POST: пригласить участника (только manager) ───────────────────────────
+    if action == "invite_member":
+        if user["role"] != "manager":
+            conn.close()
+            return err("Приглашать участников может только менеджер проекта", 403)
+        project_id = body.get("project_id")
+        user_id = body.get("user_id")
+        if not project_id or not user_id:
+            conn.close()
+            return err("Укажите project_id и user_id")
+
+        # Проект существует
+        cur.execute(f"SELECT name FROM {SCHEMA}.objects WHERE id = %s AND is_active = TRUE", (project_id,))
+        obj = cur.fetchone()
+        if not obj:
+            conn.close()
+            return err("Проект не найден")
+        project_name = obj[0]
+
+        # Получаем данные приглашаемого
+        cur.execute(f"SELECT full_name FROM {SCHEMA}.users WHERE id = %s AND is_active = TRUE", (user_id,))
+        invited = cur.fetchone()
+        if not invited:
+            conn.close()
+            return err("Пользователь не найден")
+        invited_name = invited[0]
+
+        # Проверяем нет ли уже активного запроса/приглашения
+        cur.execute(f"""
+            SELECT id, status FROM {SCHEMA}.join_requests
+            WHERE user_id = %s AND object_id = %s
+        """, (user_id, project_id))
+        existing = cur.fetchone()
+        now = datetime.now(timezone.utc)
+        if existing:
+            if existing[1] == "pending":
+                conn.close()
+                return err("Приглашение уже отправлено, ожидайте ответа")
+            if existing[1] == "approved":
+                conn.close()
+                return err("Пользователь уже участник проекта")
+            # rejected — перезаписываем
+            cur.execute(f"""
+                UPDATE {SCHEMA}.join_requests
+                SET status = 'pending', message = %s, created_at = %s, reviewed_by = NULL, reviewed_at = NULL
+                WHERE user_id = %s AND object_id = %s
+            """, (f"Приглашение от менеджера {user['full_name']}", now, user_id, project_id))
+        else:
+            cur.execute(f"""
+                INSERT INTO {SCHEMA}.join_requests (user_id, object_id, message, created_at)
+                VALUES (%s, %s, %s, %s)
+            """, (user_id, project_id, f"Приглашение от менеджера {user['full_name']}", now))
+
+        # Уведомление приглашённому
+        cur.execute(f"""
+            INSERT INTO {SCHEMA}.notifications (user_id, type, title, body, meta, created_at)
+            VALUES (%s, 'join_request', %s, %s, %s, %s)
+        """, (user_id,
+              "Приглашение в проект",
+              f"Менеджер {user['full_name']} приглашает вас в проект «{project_name}». Примите или отклоните приглашение в разделе Уведомления.",
+              json.dumps({"object_id": project_id, "requester_id": user["id"], "requester_name": user["full_name"], "is_invite": True}),
+              now))
+
+        cur.execute(f"""
+            INSERT INTO {SCHEMA}.activity_log (user_id, action, detail, created_at)
+            VALUES (%s, 'invite_member', %s, %s)
+        """, (user["id"], f"Приглашён {invited_name} в проект id={project_id}", now))
+
+        conn.commit()
+        conn.close()
+        return ok({"ok": True})
+
+    # ── POST: добавить участника напрямую (внутренняя функция, вызывается после одобрения) ──
     if action == "add_member":
         project_id = body.get("project_id")
         user_id = body.get("user_id")
         if not project_id or not user_id:
             conn.close()
             return err("Укажите project_id и user_id")
-        # Проверяем что пользователь существует
-        cur.execute(f"SELECT id FROM {SCHEMA}.users WHERE id = %s", (user_id,))
-        if not cur.fetchone():
+
+        cur.execute(f"SELECT full_name FROM {SCHEMA}.users WHERE id = %s", (user_id,))
+        row = cur.fetchone()
+        if not row:
             conn.close()
             return err("Пользователь не найден")
+        member_name = row[0]
+
+        now = datetime.now(timezone.utc)
+
+        # Привязываем к объекту
         cur.execute(f"UPDATE {SCHEMA}.users SET object_id = %s WHERE id = %s", (project_id, user_id))
+
+        # Добавляем во все чаты этого объекта
+        cur.execute(f"SELECT id FROM {SCHEMA}.chats WHERE object_id = %s", (project_id,))
+        chat_ids = [r[0] for r in cur.fetchall()]
+        for chat_id in chat_ids:
+            cur.execute(f"""
+                INSERT INTO {SCHEMA}.chat_members (chat_id, user_id, added_at)
+                VALUES (%s, %s, %s) ON CONFLICT DO NOTHING
+            """, (chat_id, user_id, now))
+            # Системное сообщение в чат
+            cur.execute(f"""
+                INSERT INTO {SCHEMA}.chat_messages (chat_id, user_id, text, created_at)
+                VALUES (%s, %s, %s, %s)
+            """, (chat_id, user["id"],
+                  f"✦ {member_name} присоединился к проекту",
+                  now))
+
         cur.execute(f"""
             INSERT INTO {SCHEMA}.activity_log (user_id, action, detail, created_at)
             VALUES (%s, 'add_member', %s, %s)
-        """, (user["id"], f"Добавлен участник user_id={user_id} в проект id={project_id}", datetime.now(timezone.utc)))
+        """, (user["id"], f"Добавлен участник {member_name} в проект id={project_id}", now))
         conn.commit()
         conn.close()
         return ok({"ok": True})
@@ -299,11 +397,25 @@ def handler(event: dict, context) -> dict:
         if not user_id:
             conn.close()
             return err("Укажите user_id")
+        # Узнаём имя и текущий объект
+        cur.execute(f"SELECT full_name, object_id FROM {SCHEMA}.users WHERE id = %s", (user_id,))
+        row = cur.fetchone()
+        member_name = row[0] if row else "Участник"
+        member_object = row[1] if row else None
+
         cur.execute(f"UPDATE {SCHEMA}.users SET object_id = NULL WHERE id = %s", (user_id,))
+
+        # Убираем из всех чатов объекта
+        if member_object:
+            cur.execute(f"SELECT id FROM {SCHEMA}.chats WHERE object_id = %s", (member_object,))
+            chat_ids = [r[0] for r in cur.fetchall()]
+            for chat_id in chat_ids:
+                cur.execute(f"DELETE FROM {SCHEMA}.chat_members WHERE chat_id = %s AND user_id = %s", (chat_id, user_id))
+
         cur.execute(f"""
             INSERT INTO {SCHEMA}.activity_log (user_id, action, detail, created_at)
             VALUES (%s, 'remove_member', %s, %s)
-        """, (user["id"], f"Удалён участник user_id={user_id} из проекта", datetime.now(timezone.utc)))
+        """, (user["id"], f"Удалён участник {member_name} из проекта", datetime.now(timezone.utc)))
         conn.commit()
         conn.close()
         return ok({"ok": True})

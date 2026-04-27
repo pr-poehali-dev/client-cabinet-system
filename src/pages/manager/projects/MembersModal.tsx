@@ -12,6 +12,7 @@ export function MembersModal({ project, onClose, onChanged }: {
   const [search, setSearch] = useState("");
   const [tab, setTab] = useState<"current" | "add">("current");
   const [busy, setBusy] = useState<number | null>(null);
+  const [invited, setInvited] = useState<Set<number>>(new Set());
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -26,11 +27,13 @@ export function MembersModal({ project, onClose, onChanged }: {
 
   useEffect(() => { load(); }, [load]);
 
-  const addMember = async (userId: number) => {
+  const inviteMember = async (userId: number) => {
     setBusy(userId);
-    await pFetch({ method: "POST", body: JSON.stringify({ action: "add_member", project_id: project.id, user_id: userId }) });
-    await load();
-    onChanged();
+    const res = await pFetch({ method: "POST", body: JSON.stringify({ action: "invite_member", project_id: project.id, user_id: userId }) });
+    const data = await res.json();
+    if (res.ok && data.ok) {
+      setInvited((prev) => new Set(prev).add(userId));
+    }
     setBusy(null);
   };
 
@@ -75,7 +78,7 @@ export function MembersModal({ project, onClose, onChanged }: {
             className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all"
             style={{ background: tab === "add" ? "hsl(195,100%,40%)" : "transparent", color: tab === "add" ? "white" : "hsl(215,15%,55%)", border: tab === "add" ? "none" : "1px solid hsl(220,15%,16%)" }}>
             <Icon name="UserPlus" size={14} />
-            Добавить {available.length > 0 && <span className="ml-1 px-1.5 py-0.5 rounded-full text-xs font-bold" style={{ background: "rgba(255,255,255,0.2)" }}>{available.length}</span>}
+            Пригласить {available.length > 0 && <span className="ml-1 px-1.5 py-0.5 rounded-full text-xs font-bold" style={{ background: "rgba(255,255,255,0.2)" }}>{available.length}</span>}
           </button>
         </div>
 
@@ -88,6 +91,9 @@ export function MembersModal({ project, onClose, onChanged }: {
                 placeholder="Поиск по имени, логину, роли…"
                 className="w-full bg-secondary/60 rounded-xl pl-9 pr-4 py-2.5 text-sm outline-none border border-border focus:border-primary transition-colors" />
             </div>
+            <p className="text-xs text-muted-foreground mt-2 px-1">
+              Пользователь получит уведомление и сам подтвердит вступление в проект.
+            </p>
           </div>
         )}
 
@@ -102,7 +108,7 @@ export function MembersModal({ project, onClose, onChanged }: {
                   <Icon name="Users" size={20} style={{ color: "hsl(195,100%,50%)" }} />
                 </div>
                 <div className="text-sm font-semibold mb-1">Нет участников</div>
-                <p className="text-xs text-muted-foreground">Перейдите на вкладку «Добавить»</p>
+                <p className="text-xs text-muted-foreground">Перейдите на вкладку «Пригласить»</p>
               </div>
             ) : members.map((m) => {
               const color = ROLE_COLORS[m.role_code] || "hsl(215,60%,60%)";
@@ -136,12 +142,13 @@ export function MembersModal({ project, onClose, onChanged }: {
           ) : (
             filteredAvailable.length === 0 ? (
               <div className="text-center py-10">
-                <div className="text-sm font-semibold mb-1">{search ? "Не найдено" : "Нет свободных участников"}</div>
-                <p className="text-xs text-muted-foreground">{search ? "Попробуйте другой запрос" : "Все пользователи уже привязаны к проектам"}</p>
+                <div className="text-sm font-semibold mb-1">{search ? "Не найдено" : "Нет доступных пользователей"}</div>
+                <p className="text-xs text-muted-foreground">{search ? "Попробуйте другой запрос" : "Все пользователи уже в проекте"}</p>
               </div>
             ) : filteredAvailable.map((m) => {
               const color = ROLE_COLORS[m.role_code] || "hsl(215,60%,60%)";
               const initials = m.full_name.split(" ").slice(0, 2).map((w: string) => w[0]).join("").toUpperCase();
+              const isInvited = invited.has(m.id);
               return (
                 <div key={m.id} className="glass rounded-xl px-4 py-3 flex items-center gap-3">
                   <div className="w-9 h-9 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-bold"
@@ -158,14 +165,23 @@ export function MembersModal({ project, onClose, onChanged }: {
                       <span className="text-xs text-muted-foreground">@{m.login}</span>
                     </div>
                   </div>
-                  <button onClick={() => addMember(m.id)} disabled={busy === m.id}
-                    title="Добавить в проект"
-                    className="p-2 rounded-lg transition-colors disabled:opacity-40 flex-shrink-0"
-                    style={{ background: "hsla(195,100%,40%,0.15)", color: "hsl(195,100%,50%)" }}>
-                    {busy === m.id
-                      ? <div className="w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-                      : <Icon name="UserPlus" size={15} />}
-                  </button>
+                  {isInvited ? (
+                    <div className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg flex-shrink-0"
+                      style={{ background: "hsla(142,80%,50%,0.12)", color: "hsl(142,80%,50%)" }}>
+                      <Icon name="Clock" size={12} />
+                      Отправлено
+                    </div>
+                  ) : (
+                    <button onClick={() => inviteMember(m.id)} disabled={busy === m.id}
+                      title="Отправить приглашение"
+                      className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-all disabled:opacity-40 flex-shrink-0"
+                      style={{ background: "hsla(195,100%,40%,0.15)", color: "hsl(195,100%,50%)" }}>
+                      {busy === m.id
+                        ? <div className="w-3 h-3 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+                        : <Icon name="Send" size={12} />}
+                      Пригласить
+                    </button>
+                  )}
                 </div>
               );
             })

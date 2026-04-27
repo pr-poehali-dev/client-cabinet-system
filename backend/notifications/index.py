@@ -266,11 +266,32 @@ def handler(event: dict, context) -> dict:
         if decision == "approved":
             # Привязываем пользователя к объекту
             cur.execute(f"UPDATE {SCHEMA}.users SET object_id = %s WHERE id = %s", (object_id, requester_id))
+
+            # Получаем имя нового участника
+            cur.execute(f"SELECT full_name FROM {SCHEMA}.users WHERE id = %s", (requester_id,))
+            member_row = cur.fetchone()
+            member_name = member_row[0] if member_row else "Участник"
+
+            # Добавляем во все чаты объекта + системное сообщение
+            cur.execute(f"SELECT id FROM {SCHEMA}.chats WHERE object_id = %s", (object_id,))
+            chat_ids = [r[0] for r in cur.fetchall()]
+            for chat_id in chat_ids:
+                cur.execute(f"""
+                    INSERT INTO {SCHEMA}.chat_members (chat_id, user_id, added_at)
+                    VALUES (%s, %s, %s) ON CONFLICT DO NOTHING
+                """, (chat_id, requester_id, now))
+                cur.execute(f"""
+                    INSERT INTO {SCHEMA}.chat_messages (chat_id, user_id, text, created_at)
+                    VALUES (%s, %s, %s, %s)
+                """, (chat_id, user["id"],
+                      f"✦ {member_name} присоединился к проекту",
+                      now))
+
             push_notification(
                 cur, requester_id,
                 "join_approved",
                 "Запрос одобрен",
-                f"Руководитель принял ваш запрос. Вы добавлены в проект «{object_name}».",
+                f"{user['full_name']} принял ваш запрос. Вы добавлены в проект «{object_name}» и все чаты проекта.",
                 {"object_id": object_id},
             )
         else:

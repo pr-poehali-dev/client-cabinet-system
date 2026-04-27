@@ -109,6 +109,7 @@ export default function ProjectsPage({ user }: ProjectsPageProps) {
 
   const isEditor = !!user && ["admin", "manager", "head"].includes(user.role_code);
   const isAdmin = user?.role_code === "admin";
+  const isManager = user?.role_code === "manager";
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -154,7 +155,7 @@ export default function ProjectsPage({ user }: ProjectsPageProps) {
                 <Icon name="Archive" size={14} />
                 Архив
               </button>
-              {!showArchived && (
+              {!showArchived && isManager && (
                 <button onClick={() => setShowCreate(true)}
                   className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-opacity hover:opacity-90"
                   style={{ background: "hsl(195,100%,40%)", color: "white" }}>
@@ -199,9 +200,9 @@ export default function ProjectsPage({ user }: ProjectsPageProps) {
             {search ? "Проекты не найдены" : "Нет активных проектов"}
           </div>
           <p className="text-sm text-muted-foreground mb-6">
-            {search ? "Попробуйте другой запрос" : isEditor ? "Создайте первый объект строительства" : "Проекты пока не созданы"}
+            {search ? "Попробуйте другой запрос" : isManager ? "Создайте первый объект строительства" : isEditor ? "Менеджер ещё не создал проекты" : "Проекты пока не созданы"}
           </p>
-          {!search && isEditor && (
+          {!search && isManager && (
             <button onClick={() => setShowCreate(true)}
               className="px-6 py-3 rounded-xl text-sm font-bold"
               style={{ background: "hsl(195,100%,40%)", color: "white" }}>
