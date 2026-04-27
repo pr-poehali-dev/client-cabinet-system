@@ -1,0 +1,11 @@
+{
+  "tests": [
+    {
+      "name": "No session — 401",
+      "method": "GET",
+      "path": "/?object_id=1",
+      "expectedStatus": 401,
+      "bodyMatcher": "partial"
+    }
+  ]
+}

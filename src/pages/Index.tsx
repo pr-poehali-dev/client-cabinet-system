@@ -36,11 +36,11 @@ export default function Index({ user, onLogout }: IndexProps) {
     switch (active) {
       case "dashboard": return <DashboardSection />;
       case "projects": return <ProjectsPage />;
-      case "gantt": return <GanttSection />;
-      case "chat": return <ChatSection />;
+      case "gantt": return <GanttSection user={user} />;
+      case "chat": return <ChatSection user={user} />;
       case "documents": return <DocumentsSection />;
       case "photos": return <PhotosSection />;
-      case "certificates": return <CertificatesSection />;
+      case "certificates": return <CertificatesSection user={user} />;
       case "finance": return <FinanceSection />;
       case "services": return <ServicesSection />;
       case "notifications": return <NotificationsSection />;

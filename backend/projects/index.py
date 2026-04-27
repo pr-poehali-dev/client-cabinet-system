@@ -88,17 +88,19 @@ def handler(event: dict, context) -> dict:
                 ORDER BY r.id, u.full_name
             """, (project_id,))
             members = cur.fetchall()
-            # Все доступные пользователи без привязки к объекту (роли не глобальные)
+            # Все активные пользователи с не-глобальными ролями, кроме уже участников этого проекта
+            member_ids = [r[0] for r in members] if members else []
+            exclude_ids = member_ids if member_ids else [0]
             cur.execute(f"""
                 SELECT u.id, u.full_name, u.login, r.name, r.code
                 FROM {SCHEMA}.users u
                 JOIN {SCHEMA}.roles r ON r.id = u.role_id
-                WHERE u.object_id IS NULL
-                  AND r.has_global_access = FALSE
+                WHERE r.has_global_access = FALSE
                   AND u.is_active = TRUE
                   AND r.code != 'admin'
+                  AND u.id != ALL(%s)
                 ORDER BY r.id, u.full_name
-            """)
+            """, (exclude_ids,))
             available = cur.fetchall()
             conn.close()
             return ok({
