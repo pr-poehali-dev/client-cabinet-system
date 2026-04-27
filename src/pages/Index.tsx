@@ -14,6 +14,7 @@ import {
   NotificationsSection,
 } from "./cabinet/ContentSections";
 import { User } from "./Login";
+import ProjectsPage from "./manager/ProjectsPage";
 
 interface IndexProps {
   user: User;
@@ -34,6 +35,7 @@ export default function Index({ user, onLogout }: IndexProps) {
   const renderSection = () => {
     switch (active) {
       case "dashboard": return <DashboardSection />;
+      case "projects": return <ProjectsPage />;
       case "gantt": return <GanttSection />;
       case "chat": return <ChatSection />;
       case "documents": return <DocumentsSection />;

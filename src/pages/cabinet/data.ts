@@ -1,5 +1,6 @@
 export type Section =
   | "dashboard"
+  | "projects"
   | "gantt"
   | "chat"
   | "documents"
@@ -9,8 +10,9 @@ export type Section =
   | "services"
   | "notifications";
 
-export const NAV_ITEMS: { id: Section; label: string; icon: string; badge?: number }[] = [
+export const NAV_ITEMS: { id: Section; label: string; icon: string; badge?: number; roles?: string[] }[] = [
   { id: "dashboard", label: "Главная", icon: "LayoutDashboard" },
+  { id: "projects", label: "Проекты", icon: "Building2", roles: ["manager", "head", "admin"] },
   { id: "gantt", label: "График", icon: "GanttChart" },
   { id: "chat", label: "Чат", icon: "MessageSquare", badge: 3 },
   { id: "documents", label: "Документы", icon: "FileText" },

@@ -57,7 +57,7 @@ export default function Sidebar({ active, sidebarOpen, setActive, setSidebarOpen
 
       {/* Nav */}
       <nav className="flex-1 px-3 overflow-y-auto scrollbar-thin space-y-0.5 pb-2">
-        {NAV_ITEMS.map((item) => (
+        {NAV_ITEMS.filter((item) => !item.roles || item.roles.includes(user.role_code)).map((item) => (
           <button
             key={item.id}
             onClick={() => { setActive(item.id); setSidebarOpen(false); }}

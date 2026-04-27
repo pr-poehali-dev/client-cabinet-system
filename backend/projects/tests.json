@@ -1,0 +1,11 @@
+{
+  "tests": [
+    {
+      "name": "No session — forbidden",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 403,
+      "bodyMatcher": "partial"
+    }
+  ]
+}
