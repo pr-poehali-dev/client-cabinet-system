@@ -2,7 +2,7 @@ import Icon from "@/components/ui/icon";
 import { Project } from "./projectsApi";
 
 export function ProjectCard({ p, onEdit, onArchive, onMembers }: {
-  p: Project; onEdit: () => void; onArchive: () => void; onMembers: () => void;
+  p: Project; onEdit?: () => void; onArchive?: () => void; onMembers?: () => void;
 }) {
   const fmtDate = (d: string | null) =>
     d ? new Date(d).toLocaleDateString("ru-RU", { day: "numeric", month: "short", year: "numeric" }) : "—";
@@ -22,18 +22,24 @@ export function ProjectCard({ p, onEdit, onArchive, onMembers }: {
           )}
         </div>
         <div className="flex gap-1 flex-shrink-0">
-          <button onClick={onMembers} title="Команда проекта"
-            className="p-2 rounded-lg hover:bg-secondary transition-colors">
-            <Icon name="Users" size={14} className="text-muted-foreground" />
-          </button>
-          <button onClick={onEdit} title="Редактировать"
-            className="p-2 rounded-lg hover:bg-secondary transition-colors">
-            <Icon name="Pencil" size={14} className="text-muted-foreground" />
-          </button>
-          <button onClick={onArchive} title="Архивировать"
-            className="p-2 rounded-lg hover:bg-secondary transition-colors">
-            <Icon name="Archive" size={14} className="text-muted-foreground" />
-          </button>
+          {onMembers && (
+            <button onClick={onMembers} title="Команда проекта"
+              className="p-2 rounded-lg hover:bg-secondary transition-colors">
+              <Icon name="Users" size={14} className="text-muted-foreground" />
+            </button>
+          )}
+          {onEdit && (
+            <button onClick={onEdit} title="Редактировать"
+              className="p-2 rounded-lg hover:bg-secondary transition-colors">
+              <Icon name="Pencil" size={14} className="text-muted-foreground" />
+            </button>
+          )}
+          {onArchive && (
+            <button onClick={onArchive} title="Архивировать"
+              className="p-2 rounded-lg hover:bg-secondary transition-colors">
+              <Icon name="Archive" size={14} className="text-muted-foreground" />
+            </button>
+          )}
         </div>
       </div>
 
@@ -89,12 +95,14 @@ export function ProjectCard({ p, onEdit, onArchive, onMembers }: {
       {/* Footer */}
       <div className="flex items-center justify-between pt-1 border-t border-border">
         <span className="text-xs text-muted-foreground">Создал: {p.created_by_name || "—"}</span>
-        <button onClick={onMembers}
-          className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-semibold transition-all hover:opacity-90"
-          style={{ background: "hsla(195,100%,40%,0.15)", color: "hsl(195,100%,50%)" }}>
-          <Icon name="Users" size={13} />
-          Команда · {p.members_count}
-        </button>
+        {onMembers && (
+          <button onClick={onMembers}
+            className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-semibold transition-all hover:opacity-90"
+            style={{ background: "hsla(195,100%,40%,0.15)", color: "hsl(195,100%,50%)" }}>
+            <Icon name="Users" size={13} />
+            Команда · {p.members_count}
+          </button>
+        )}
       </div>
     </div>
   );

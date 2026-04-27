@@ -15,6 +15,7 @@ import {
 } from "./cabinet/ContentSections";
 import { User } from "./Login";
 import ProjectsPage from "./manager/ProjectsPage";
+import { useNotifications } from "@/hooks/useNotifications";
 
 interface IndexProps {
   user: User;
@@ -25,6 +26,7 @@ export default function Index({ user, onLogout }: IndexProps) {
   const [active, setActive] = useState<Section>("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [theme, setTheme] = useState<"dark" | "light">("dark");
+  const { unreadCount } = useNotifications(15000);
 
   const toggleTheme = () => {
     const next = theme === "dark" ? "light" : "dark";
@@ -35,7 +37,7 @@ export default function Index({ user, onLogout }: IndexProps) {
   const renderSection = () => {
     switch (active) {
       case "dashboard": return <DashboardSection />;
-      case "projects": return <ProjectsPage />;
+      case "projects": return <ProjectsPage user={user} />;
       case "gantt": return <GanttSection user={user} />;
       case "chat": return <ChatSection user={user} />;
       case "documents": return <DocumentsSection />;
@@ -43,7 +45,7 @@ export default function Index({ user, onLogout }: IndexProps) {
       case "certificates": return <CertificatesSection user={user} />;
       case "finance": return <FinanceSection />;
       case "services": return <ServicesSection />;
-      case "notifications": return <NotificationsSection />;
+      case "notifications": return <NotificationsSection user={user} />;
     }
   };
 
@@ -79,8 +81,12 @@ export default function Index({ user, onLogout }: IndexProps) {
             <button className="relative p-2 rounded-xl hover:bg-secondary transition-colors"
               onClick={() => setActive("notifications")}>
               <Icon name="Bell" size={18} />
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full"
-                style={{ background: "hsl(0,80%,60%)" }} />
+              {unreadCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold flex items-center justify-center"
+                  style={{ background: "hsl(0,80%,60%)", color: "white" }}>
+                  {unreadCount > 99 ? "99+" : unreadCount}
+                </span>
+              )}
             </button>
             <button
               className="p-2 rounded-xl hover:bg-secondary transition-colors"

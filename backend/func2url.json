@@ -1,4 +1,5 @@
 {
+  "notifications": "https://functions.poehali.dev/ca60c725-453c-44ec-8c06-2592109a1ebc",
   "certs": "https://functions.poehali.dev/343e3523-d07b-4812-9a36-32cbba7dc3f9",
   "gantt": "https://functions.poehali.dev/47f68917-e362-4e16-a4a7-8f2d5a7fcd95",
   "chat": "https://functions.poehali.dev/8d5be2bf-d680-490b-96de-b75b352a1207",

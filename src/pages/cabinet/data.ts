@@ -12,15 +12,15 @@ export type Section =
 
 export const NAV_ITEMS: { id: Section; label: string; icon: string; badge?: number; roles?: string[] }[] = [
   { id: "dashboard", label: "Главная", icon: "LayoutDashboard" },
-  { id: "projects", label: "Проекты", icon: "Building2", roles: ["manager", "head", "admin"] },
+  { id: "projects", label: "Проекты", icon: "Building2" },
   { id: "gantt", label: "График", icon: "GanttChart" },
-  { id: "chat", label: "Чат", icon: "MessageSquare", badge: 3 },
+  { id: "chat", label: "Чат", icon: "MessageSquare" },
   { id: "documents", label: "Документы", icon: "FileText" },
   { id: "photos", label: "Фото", icon: "Camera" },
   { id: "certificates", label: "Сертификаты", icon: "Award" },
   { id: "finance", label: "Финансы", icon: "Wallet" },
   { id: "services", label: "Услуги", icon: "Wrench" },
-  { id: "notifications", label: "Уведомления", icon: "Bell", badge: 5 },
+  { id: "notifications", label: "Уведомления", icon: "Bell" },
 ];
 
 export const GANTT_STAGES = [
@@ -59,15 +59,6 @@ export const CERTS = [
   { id: 4, name: "Металлопрофиль Н75", material: "Кровля", vendor: "СтальПрофиль", date: "10.04.2025" },
 ];
 
-export const NOTIFICATIONS = [
-  { id: 1, text: "Завершён монтаж окон на 2-м этаже", time: "2 часа назад", type: "success", read: false },
-  { id: 2, text: "Загружен акт выполненных работ №4", time: "5 часов назад", type: "info", read: false },
-  { id: 3, text: "Платёж 320 000 ₽ ожидается 30 апреля", time: "1 день назад", type: "warning", read: false },
-  { id: 4, text: "Прораб отправил фотоотчёт за неделю", time: "1 день назад", type: "info", read: false },
-  { id: 5, text: "Загружены сертификаты на металлопрофиль", time: "2 дня назад", type: "success", read: false },
-  { id: 6, text: "Совещание по проекту — 28 апреля в 14:00", time: "3 дня назад", type: "info", read: true },
-  { id: 7, text: "Кровля завершена на 100%", time: "5 дней назад", type: "success", read: true },
-];
 
 export const SERVICES = [
   {

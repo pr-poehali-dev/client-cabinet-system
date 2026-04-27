@@ -4,15 +4,109 @@ import { pFetch, Project } from "./projects/projectsApi";
 import { ProjectModal, ArchiveConfirm } from "./projects/ProjectModals";
 import { MembersModal } from "./projects/MembersModal";
 import { ProjectCard } from "./projects/ProjectCard";
+import { User } from "../Login";
+import { notifFetch } from "@/hooks/useNotifications";
 
-export default function ProjectsPage() {
+interface ProjectsPageProps { user?: User; }
+
+// ─── Join Request Modal ────────────────────────────────────────────────────────
+
+function JoinRequestModal({ project, onClose }: { project: Project; onClose: () => void }) {
+  const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [done, setDone] = useState(false);
+  const [error, setError] = useState("");
+
+  const submit = async () => {
+    setLoading(true); setError("");
+    const res = await notifFetch("/", {
+      method: "POST",
+      body: JSON.stringify({ action: "join_request", object_id: project.id, message: message.trim() || undefined }),
+    });
+    const data = await res.json();
+    setLoading(false);
+    if (res.ok && data.ok) setDone(true);
+    else setError(data.error || "Ошибка");
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(6px)" }}>
+      <div className="glass-strong rounded-3xl p-6 w-full max-w-md gradient-border animate-fade-in">
+        <div className="flex items-center justify-between mb-5">
+          <h3 className="font-display text-lg font-bold">Запрос на вступление</h3>
+          <button onClick={onClose} className="p-2 rounded-xl hover:bg-secondary">
+            <Icon name="X" size={18} className="text-muted-foreground" />
+          </button>
+        </div>
+
+        {done ? (
+          <div className="text-center py-6">
+            <div className="w-14 h-14 rounded-2xl mx-auto mb-4 flex items-center justify-center"
+              style={{ background: "hsla(142,80%,50%,0.12)" }}>
+              <Icon name="CheckCircle2" size={30} style={{ color: "hsl(142,80%,50%)" }} />
+            </div>
+            <div className="font-semibold text-base mb-1">Заявка отправлена!</div>
+            <p className="text-sm text-muted-foreground">
+              Руководитель проекта получил уведомление и рассмотрит вашу заявку.
+            </p>
+            <button onClick={onClose} className="mt-5 px-6 py-2.5 rounded-xl text-sm font-semibold bg-secondary hover:opacity-80">
+              Закрыть
+            </button>
+          </div>
+        ) : (
+          <>
+            <div className="glass rounded-2xl p-4 mb-5">
+              <div className="font-semibold text-sm">{project.name}</div>
+              {project.address && <div className="text-xs text-muted-foreground mt-0.5">{project.address}</div>}
+              {project.members_count !== undefined && (
+                <div className="text-xs text-muted-foreground mt-0.5">{project.members_count} участников</div>
+              )}
+            </div>
+            <div className="mb-4">
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">
+                Сообщение (необязательно)
+              </label>
+              <textarea value={message} onChange={(e) => setMessage(e.target.value)} rows={3}
+                placeholder="Опишите кратко свою роль или причину вступления…"
+                className="w-full bg-secondary/60 rounded-xl px-4 py-3 text-sm outline-none border border-border focus:border-primary transition-colors resize-none" />
+            </div>
+            {error && (
+              <div className="flex items-center gap-2 text-sm px-3 py-2.5 rounded-xl mb-4"
+                style={{ background: "hsla(0,80%,60%,0.12)", color: "hsl(0,80%,60%)" }}>
+                <Icon name="AlertCircle" size={14} />{error}
+              </div>
+            )}
+            <div className="flex gap-3">
+              <button onClick={onClose} className="flex-1 py-3 rounded-xl text-sm font-semibold bg-secondary hover:opacity-80">
+                Отмена
+              </button>
+              <button onClick={submit} disabled={loading}
+                className="flex-1 py-3 rounded-xl text-sm font-bold disabled:opacity-50"
+                style={{ background: "hsl(195,100%,40%)", color: "white" }}>
+                {loading ? "Отправляем…" : "Отправить заявку"}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Projects Page ────────────────────────────────────────────────────────────
+
+export default function ProjectsPage({ user }: ProjectsPageProps) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const [editProject, setEditProject] = useState<Project | null>(null);
   const [archiveProject, setArchiveProject] = useState<Project | null>(null);
   const [membersProject, setMembersProject] = useState<Project | null>(null);
+  const [joinProject, setJoinProject] = useState<Project | null>(null);
   const [search, setSearch] = useState("");
+
+  const isEditor = !!user && ["admin", "manager", "head"].includes(user.role_code);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -35,7 +129,9 @@ export default function ProjectsPage() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h2 className="font-display text-2xl font-bold">Проекты</h2>
-          <p className="text-muted-foreground mt-1">Управление объектами строительства</p>
+          <p className="text-muted-foreground mt-1">
+            {isEditor ? "Управление объектами строительства" : "Список активных проектов — подайте заявку на вступление"}
+          </p>
         </div>
         <div className="flex items-center gap-3">
           <div className="relative">
@@ -44,12 +140,14 @@ export default function ProjectsPage() {
               placeholder="Поиск…"
               className="bg-secondary/60 rounded-xl pl-9 pr-4 py-2 text-sm outline-none border border-border focus:border-primary transition-colors w-44" />
           </div>
-          <button onClick={() => setShowCreate(true)}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-opacity hover:opacity-90"
-            style={{ background: "hsl(195,100%,40%)", color: "white" }}>
-            <Icon name="Plus" size={16} />
-            Новый проект
-          </button>
+          {isEditor && (
+            <button onClick={() => setShowCreate(true)}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-opacity hover:opacity-90"
+              style={{ background: "hsl(195,100%,40%)", color: "white" }}>
+              <Icon name="Plus" size={16} />
+              Новый проект
+            </button>
+          )}
         </div>
       </div>
 
@@ -85,9 +183,9 @@ export default function ProjectsPage() {
             {search ? "Проекты не найдены" : "Нет активных проектов"}
           </div>
           <p className="text-sm text-muted-foreground mb-6">
-            {search ? "Попробуйте другой запрос" : "Создайте первый объект строительства"}
+            {search ? "Попробуйте другой запрос" : isEditor ? "Создайте первый объект строительства" : "Проекты пока не созданы"}
           </p>
-          {!search && (
+          {!search && isEditor && (
             <button onClick={() => setShowCreate(true)}
               className="px-6 py-3 rounded-xl text-sm font-bold"
               style={{ background: "hsl(195,100%,40%)", color: "white" }}>
@@ -98,13 +196,23 @@ export default function ProjectsPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {filtered.map((p) => (
-            <ProjectCard
-              key={p.id}
-              p={p}
-              onEdit={() => setEditProject(p)}
-              onArchive={() => setArchiveProject(p)}
-              onMembers={() => setMembersProject(p)}
-            />
+            <div key={p.id} className="relative group">
+              <ProjectCard
+                p={p}
+                onEdit={isEditor ? () => setEditProject(p) : undefined}
+                onArchive={isEditor ? () => setArchiveProject(p) : undefined}
+                onMembers={isEditor ? () => setMembersProject(p) : undefined}
+              />
+              {!isEditor && (
+                <button
+                  onClick={() => setJoinProject(p)}
+                  className="absolute bottom-4 right-4 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-opacity hover:opacity-90"
+                  style={{ background: "hsl(195,100%,40%)", color: "white" }}>
+                  <Icon name="UserPlus" size={12} />
+                  Подать заявку
+                </button>
+              )}
+            </div>
           ))}
         </div>
       )}
@@ -113,6 +221,7 @@ export default function ProjectsPage() {
       {editProject && <ProjectModal initial={editProject} onClose={() => setEditProject(null)} onSaved={load} />}
       {archiveProject && <ArchiveConfirm project={archiveProject} onClose={() => setArchiveProject(null)} onDone={load} />}
       {membersProject && <MembersModal project={membersProject} onClose={() => setMembersProject(null)} onChanged={load} />}
+      {joinProject && <JoinRequestModal project={joinProject} onClose={() => setJoinProject(null)} />}
     </div>
   );
 }
