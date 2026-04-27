@@ -2,6 +2,8 @@ import Icon from "@/components/ui/icon";
 import { NAV_ITEMS, Section } from "./data";
 import { User } from "../Login";
 
+const LOGO = "https://cdn.poehali.dev/projects/bde71961-0812-45ae-89b3-4231a85c07a4/bucket/eb845745-b317-4d39-b2a4-2fe646b5447f.png";
+
 interface SidebarProps {
   active: Section;
   sidebarOpen: boolean;
@@ -27,15 +29,10 @@ export default function Sidebar({ active, sidebarOpen, setActive, setSidebarOpen
     >
       {/* Logo */}
       <div className="px-5 pt-6 pb-4">
-        <div className="flex items-center gap-2.5">
-          <div
-            className="w-8 h-8 rounded-xl flex items-center justify-center animate-pulse-glow"
-            style={{ background: "linear-gradient(135deg, hsl(195,100%,50%), hsl(265,90%,65%))" }}
-          >
-            <Icon name="Home" size={16} style={{ color: "hsl(220,20%,6%)" }} />
-          </div>
+        <div className="flex items-center gap-3">
+          <img src={LOGO} alt="ГлобалСТ" className="h-9 w-auto flex-shrink-0" />
           <div>
-            <div className="font-display font-black text-sm leading-none tracking-wide">СТРОЙКАБИНЕТ</div>
+            <div className="font-display font-black text-sm leading-none tracking-wide">ГлобалСТ</div>
             <div className="text-xs text-muted-foreground mt-0.5">Личный кабинет</div>
           </div>
         </div>
@@ -109,11 +106,8 @@ export default function Sidebar({ active, sidebarOpen, setActive, setSidebarOpen
             <div className="text-sm font-semibold truncate">{user.full_name}</div>
             <div className="text-xs text-muted-foreground truncate">{user.role_name}</div>
           </div>
-          <button
-            onClick={onLogout}
-            title="Выйти"
-            className="p-1.5 rounded-lg hover:bg-secondary transition-colors"
-          >
+          <button onClick={onLogout} title="Выйти"
+            className="p-1.5 rounded-lg hover:bg-secondary transition-colors">
             <Icon name="LogOut" size={15} className="text-muted-foreground" />
           </button>
         </div>

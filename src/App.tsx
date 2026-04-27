@@ -5,23 +5,20 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import Login, { User } from "./pages/Login";
 import Index from "./pages/Index";
+import Admin from "./pages/Admin";
 import FUNC_URLS from "../backend/func2url.json";
 
 const queryClient = new QueryClient();
-
 const SESSION_KEY = "cabinet_session";
 
 function AppInner() {
   const [user, setUser] = useState<User | null>(null);
   const [checking, setChecking] = useState(true);
 
-  // Восстанавливаем сессию из localStorage
   useEffect(() => {
     const stored = localStorage.getItem(SESSION_KEY);
     if (!stored) { setChecking(false); return; }
-    fetch(FUNC_URLS.auth, {
-      headers: { "X-Session-Id": stored },
-    })
+    fetch(FUNC_URLS.auth, { headers: { "X-Session-Id": stored } })
       .then((r) => r.json())
       .then((data) => {
         if (data.user) setUser(data.user);
@@ -52,13 +49,20 @@ function AppInner() {
   if (checking) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+          <div className="text-xs text-muted-foreground">Загрузка…</div>
+        </div>
       </div>
     );
   }
 
   if (!user) return <Login onLogin={handleLogin} />;
 
+  // Администратор → отдельная панель
+  if (user.role_code === "admin") return <Admin user={user} onLogout={handleLogout} />;
+
+  // Все остальные → кабинет
   return <Index user={user} onLogout={handleLogout} />;
 }
 
