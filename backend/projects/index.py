@@ -88,15 +88,14 @@ def handler(event: dict, context) -> dict:
                 ORDER BY r.id, u.full_name
             """, (project_id,))
             members = cur.fetchall()
-            # Все активные пользователи с не-глобальными ролями, кроме уже участников этого проекта
+            # Все активные пользователи, кроме уже участников этого проекта и кроме admin
             member_ids = [r[0] for r in members] if members else []
             exclude_ids = member_ids if member_ids else [0]
             cur.execute(f"""
                 SELECT u.id, u.full_name, u.login, r.name, r.code
                 FROM {SCHEMA}.users u
                 JOIN {SCHEMA}.roles r ON r.id = u.role_id
-                WHERE r.has_global_access = FALSE
-                  AND u.is_active = TRUE
+                WHERE u.is_active = TRUE
                   AND r.code != 'admin'
                   AND u.id != ALL(%s)
                 ORDER BY r.id, u.full_name
@@ -219,18 +218,11 @@ def handler(event: dict, context) -> dict:
         if not project_id or not user_id:
             conn.close()
             return err("Укажите project_id и user_id")
-        # Проверяем что пользователь не глобальный
-        cur.execute(f"""
-            SELECT r.has_global_access FROM {SCHEMA}.users u
-            JOIN {SCHEMA}.roles r ON r.id = u.role_id WHERE u.id = %s
-        """, (user_id,))
-        row = cur.fetchone()
-        if not row:
+        # Проверяем что пользователь существует
+        cur.execute(f"SELECT id FROM {SCHEMA}.users WHERE id = %s", (user_id,))
+        if not cur.fetchone():
             conn.close()
             return err("Пользователь не найден")
-        if row[0]:
-            conn.close()
-            return err("Пользователь с глобальным доступом не привязывается к объекту")
         cur.execute(f"UPDATE {SCHEMA}.users SET object_id = %s WHERE id = %s", (project_id, user_id))
         cur.execute(f"""
             INSERT INTO {SCHEMA}.activity_log (user_id, action, detail, created_at)
