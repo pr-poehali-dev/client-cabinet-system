@@ -56,20 +56,26 @@ function daysLeft(d: string | null): number | null {
 
 // ─── No Project State ─────────────────────────────────────────────────────────
 
-function NoProject() {
+function NoProject({ isManager }: { isManager?: boolean }) {
   return (
     <div className="space-y-6 animate-fade-in">
       <div>
-        <h2 className="font-display text-2xl font-bold text-foreground">Обзор проекта</h2>
+        <h2 className="font-display text-2xl font-bold text-foreground">
+          {isManager ? "Все проекты" : "Обзор проекта"}
+        </h2>
       </div>
       <div className="glass rounded-3xl p-16 text-center">
         <div className="w-16 h-16 rounded-2xl mx-auto mb-4 flex items-center justify-center"
           style={{ background: "hsla(195,100%,50%,0.1)" }}>
           <Icon name="Building2" size={28} style={{ color: "hsl(195,100%,50%)" }} />
         </div>
-        <div className="font-display text-lg font-bold mb-2">Проект не назначен</div>
+        <div className="font-display text-lg font-bold mb-2">
+          {isManager ? "Нет активных проектов" : "Проект не назначен"}
+        </div>
         <p className="text-sm text-muted-foreground">
-          Обратитесь к менеджеру проекта — он привяжет вас к объекту строительства.
+          {isManager
+            ? "Создайте первый проект в разделе «Проекты» или разархивируйте существующий."
+            : "Обратитесь к менеджеру проекта — он привяжет вас к объекту строительства."}
         </p>
       </div>
     </div>
@@ -89,7 +95,10 @@ export function DashboardSection() {
     );
   }
 
-  // Глобальные роли — видят все проекты списком
+  // Глобальные роли без активных проектов
+  if (!project && projects.length === 0) return <NoProject isManager />;
+
+  // Глобальные роли — видят активные проекты списком
   if (!project && projects.length > 0) {
     return (
       <div className="space-y-6 animate-fade-in">

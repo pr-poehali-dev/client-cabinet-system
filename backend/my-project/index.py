@@ -82,7 +82,7 @@ def handler(event: dict, context) -> dict:
             "created_at": str(obj[8]) if obj[8] else None,
         }})
 
-    # Глобальная роль — возвращаем список всех активных проектов
+    # Глобальная роль — возвращаем только НЕ архивированные проекты
     if has_global:
         cur.execute(f"""
             SELECT o.id, o.name, o.address, o.area_m2,
@@ -90,7 +90,7 @@ def handler(event: dict, context) -> dict:
                    COUNT(DISTINCT m.id) AS members_count
             FROM {SCHEMA}.objects o
             LEFT JOIN {SCHEMA}.users m ON m.object_id = o.id AND m.is_active = TRUE
-            WHERE o.is_active = TRUE
+            WHERE o.is_active = TRUE AND o.archived_at IS NULL
             GROUP BY o.id
             ORDER BY o.created_at DESC
         """)
