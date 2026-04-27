@@ -66,7 +66,7 @@ def handler(event: dict, context) -> dict:
             SELECT id, name, address, description, area_m2,
                    started_at, deadline_at, progress_pct, created_at
             FROM {SCHEMA}.objects
-            WHERE id = %s AND is_active = TRUE
+            WHERE id = %s AND is_active = TRUE AND archived_at IS NULL
         """, (object_id,))
         obj = cur.fetchone()
         conn.close()
