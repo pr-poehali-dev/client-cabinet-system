@@ -41,7 +41,7 @@ def get_user(event: dict, conn):
     cur = conn.cursor()
     now = datetime.now(timezone.utc)
     cur.execute(f"""
-        SELECT u.id, u.full_name, r.code
+        SELECT u.id, u.full_name, r.code, u.object_id
         FROM {SCHEMA}.sessions s
         JOIN {SCHEMA}.users u ON u.id = s.user_id
         JOIN {SCHEMA}.roles r ON r.id = u.role_id
@@ -50,7 +50,7 @@ def get_user(event: dict, conn):
     row = cur.fetchone()
     if not row or row[2] not in ALLOWED_ROLES:
         return None
-    return {"id": row[0], "full_name": row[1], "role": row[2]}
+    return {"id": row[0], "full_name": row[1], "role": row[2], "object_id": row[3]}
 
 
 def handler(event: dict, context) -> dict:
@@ -109,20 +109,53 @@ def handler(event: dict, context) -> dict:
 
     # ── GET: список проектов ──────────────────────────────────────────────────
     if method == "GET":
-        cur.execute(f"""
-            SELECT
-                o.id, o.name, o.address, o.description,
-                o.area_m2, o.started_at, o.deadline_at,
-                o.progress_pct, o.is_active, o.created_at,
-                u.full_name AS created_by_name,
-                COUNT(DISTINCT m.id) AS members_count
-            FROM {SCHEMA}.objects o
-            LEFT JOIN {SCHEMA}.users u ON u.id = o.created_by
-            LEFT JOIN {SCHEMA}.users m ON m.object_id = o.id AND m.is_active = TRUE
-            WHERE o.is_active = TRUE
-            GROUP BY o.id, u.full_name
-            ORDER BY o.created_at DESC
-        """)
+        qs2 = event.get("queryStringParameters") or {}
+        show_archived = qs2.get("archived") == "1" and user["role"] in ("admin", "head", "manager")
+        # admin видит все; менеджер/руководитель — только не архивированные (если не запросил archived);
+        # участник — только свой объект
+        if user["role"] == "admin":
+            where_clause = "o.is_active = TRUE" if not show_archived else "o.archived_at IS NOT NULL AND o.is_active = TRUE"
+        elif user["role"] in ("head", "manager"):
+            where_clause = ("o.archived_at IS NOT NULL AND o.is_active = TRUE" if show_archived
+                            else "o.is_active = TRUE AND o.archived_at IS NULL")
+        else:
+            # Остальные роли видят только свой объект
+            where_clause = "o.is_active = TRUE AND o.id = %s"
+
+        if user["role"] not in ("admin", "head", "manager"):
+            object_id = user.get("object_id")
+            if not object_id:
+                conn.close()
+                return ok({"projects": []})
+            cur.execute(f"""
+                SELECT o.id, o.name, o.address, o.description,
+                       o.area_m2, o.started_at, o.deadline_at,
+                       o.progress_pct, o.is_active, o.created_at,
+                       u.full_name AS created_by_name,
+                       COUNT(DISTINCT m.id) AS members_count,
+                       o.archived_at
+                FROM {SCHEMA}.objects o
+                LEFT JOIN {SCHEMA}.users u ON u.id = o.created_by
+                LEFT JOIN {SCHEMA}.users m ON m.object_id = o.id AND m.is_active = TRUE
+                WHERE {where_clause}
+                GROUP BY o.id, u.full_name
+                ORDER BY o.created_at DESC
+            """, (object_id,))
+        else:
+            cur.execute(f"""
+                SELECT o.id, o.name, o.address, o.description,
+                       o.area_m2, o.started_at, o.deadline_at,
+                       o.progress_pct, o.is_active, o.created_at,
+                       u.full_name AS created_by_name,
+                       COUNT(DISTINCT m.id) AS members_count,
+                       o.archived_at
+                FROM {SCHEMA}.objects o
+                LEFT JOIN {SCHEMA}.users u ON u.id = o.created_by
+                LEFT JOIN {SCHEMA}.users m ON m.object_id = o.id AND m.is_active = TRUE
+                WHERE {where_clause}
+                GROUP BY o.id, u.full_name
+                ORDER BY o.created_at DESC
+            """)
         rows = cur.fetchall()
         conn.close()
         return ok({"projects": [{
@@ -132,6 +165,7 @@ def handler(event: dict, context) -> dict:
             "progress_pct": r[7], "is_active": r[8],
             "created_at": r[9], "created_by_name": r[10],
             "members_count": r[11],
+            "archived_at": str(r[12]) if r[12] else None,
         } for r in rows]})
 
     # ── POST: создать проект ──────────────────────────────────────────────────
@@ -194,19 +228,56 @@ def handler(event: dict, context) -> dict:
         conn.close()
         return ok({"ok": True})
 
-    # ── POST: архивировать проект ─────────────────────────────────────────────
+    # ── POST: архивировать проект (только помечаем archived_at, участники не теряют доступ) ──
     if action == "archive":
         project_id = body.get("id")
         if not project_id:
             conn.close()
             return err("Укажите id проекта")
-
-        cur.execute(f"UPDATE {SCHEMA}.objects SET is_active = FALSE WHERE id = %s", (project_id,))
+        now = datetime.now(timezone.utc)
+        cur.execute(f"UPDATE {SCHEMA}.objects SET archived_at = %s WHERE id = %s", (now, project_id))
         cur.execute(f"""
             INSERT INTO {SCHEMA}.activity_log (user_id, action, detail, created_at)
             VALUES (%s, 'archive_project', %s, %s)
-        """, (user["id"], f"Архивирован проект id={project_id}", datetime.now(timezone.utc)))
+        """, (user["id"], f"Архивирован проект id={project_id}", now))
+        conn.commit()
+        conn.close()
+        return ok({"ok": True})
 
+    # ── POST: разархивировать проект ──────────────────────────────────────────
+    if action == "unarchive":
+        if user["role"] not in ("admin", "head", "manager"):
+            conn.close()
+            return err("Нет прав", 403)
+        project_id = body.get("id")
+        if not project_id:
+            conn.close()
+            return err("Укажите id проекта")
+        cur.execute(f"UPDATE {SCHEMA}.objects SET archived_at = NULL WHERE id = %s", (project_id,))
+        cur.execute(f"""
+            INSERT INTO {SCHEMA}.activity_log (user_id, action, detail, created_at)
+            VALUES (%s, 'unarchive_project', %s, %s)
+        """, (user["id"], f"Разархивирован проект id={project_id}", datetime.now(timezone.utc)))
+        conn.commit()
+        conn.close()
+        return ok({"ok": True})
+
+    # ── POST: удалить проект (только admin) ───────────────────────────────────
+    if action == "delete":
+        if user["role"] != "admin":
+            conn.close()
+            return err("Удалить проект может только администратор", 403)
+        project_id = body.get("id")
+        if not project_id:
+            conn.close()
+            return err("Укажите id проекта")
+        # Снимаем object_id у всех участников
+        cur.execute(f"UPDATE {SCHEMA}.users SET object_id = NULL WHERE object_id = %s", (project_id,))
+        cur.execute(f"UPDATE {SCHEMA}.objects SET is_active = FALSE WHERE id = %s", (project_id,))
+        cur.execute(f"""
+            INSERT INTO {SCHEMA}.activity_log (user_id, action, detail, created_at)
+            VALUES (%s, 'delete_project', %s, %s)
+        """, (user["id"], f"Удалён проект id={project_id}", datetime.now(timezone.utc)))
         conn.commit()
         conn.close()
         return ok({"ok": True})

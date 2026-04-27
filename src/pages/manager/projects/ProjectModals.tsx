@@ -140,37 +140,74 @@ export function ProjectModal({ initial, onClose, onSaved }: ModalProps) {
   );
 }
 
-// ─── Archive Confirm ──────────────────────────────────────────────────────────
+// ─── Archive / Delete Confirm ─────────────────────────────────────────────────
 
-export function ArchiveConfirm({ project, onClose, onDone }: {
-  project: Project; onClose: () => void; onDone: () => void;
+export function ArchiveConfirm({ project, onClose, onDone, isAdmin }: {
+  project: Project; onClose: () => void; onDone: () => void; isAdmin?: boolean;
 }) {
   const [loading, setLoading] = useState(false);
+  const [mode, setMode] = useState<"archive" | "delete">("archive");
 
   const confirm = async () => {
     setLoading(true);
-    await pFetch({ method: "POST", body: JSON.stringify({ action: "archive", id: project.id }) });
+    await pFetch({ method: "POST", body: JSON.stringify({ action: mode, id: project.id }) });
     onDone(); onClose();
   };
+
+  const isDelete = mode === "delete";
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)" }}>
       <div className="glass-strong rounded-3xl p-6 w-full max-w-sm gradient-border animate-fade-in text-center">
+
+        {/* Mode switcher — только для admin */}
+        {isAdmin && (
+          <div className="flex gap-2 mb-5">
+            {[
+              { key: "archive", label: "Архивировать", icon: "Archive" },
+              { key: "delete",  label: "Удалить",       icon: "Trash2"  },
+            ].map((m) => (
+              <button key={m.key} onClick={() => setMode(m.key as "archive" | "delete")}
+                className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold transition-all"
+                style={{
+                  background: mode === m.key
+                    ? m.key === "delete" ? "hsla(0,80%,60%,0.15)" : "hsla(30,100%,50%,0.15)"
+                    : "transparent",
+                  color: mode === m.key
+                    ? m.key === "delete" ? "hsl(0,80%,60%)" : "hsl(30,100%,50%)"
+                    : "hsl(215,15%,55%)",
+                  border: `1px solid ${mode === m.key
+                    ? m.key === "delete" ? "hsla(0,80%,60%,0.3)" : "hsla(30,100%,50%,0.3)"
+                    : "hsl(220,15%,16%)"}`,
+                }}>
+                <Icon name={m.icon} size={13} />
+                {m.label}
+              </button>
+            ))}
+          </div>
+        )}
+
         <div className="w-14 h-14 rounded-2xl mx-auto mb-4 flex items-center justify-center"
-          style={{ background: "hsla(30,100%,50%,0.15)" }}>
-          <Icon name="Archive" size={24} style={{ color: "hsl(30,100%,50%)" }} />
+          style={{ background: isDelete ? "hsla(0,80%,60%,0.15)" : "hsla(30,100%,50%,0.15)" }}>
+          <Icon name={isDelete ? "Trash2" : "Archive"} size={24}
+            style={{ color: isDelete ? "hsl(0,80%,60%)" : "hsl(30,100%,50%)" }} />
         </div>
-        <h3 className="font-display text-lg font-bold mb-2">Архивировать проект?</h3>
+        <h3 className="font-display text-lg font-bold mb-2">
+          {isDelete ? "Удалить проект?" : "Архивировать проект?"}
+        </h3>
         <p className="text-sm text-muted-foreground mb-6">
-          «{project.name}» будет скрыт из активных. Данные сохранятся.
+          {isDelete
+            ? <>«{project.name}» будет <span className="font-semibold" style={{ color: "hsl(0,80%,60%)" }}>удалён навсегда</span>. Все участники потеряют доступ к объекту.</>
+            : <>«{project.name}» скроется из активных у менеджеров. Участники <span className="font-semibold">сохранят доступ</span> к своему проекту.</>
+          }
         </p>
         <div className="flex gap-3">
           <button onClick={onClose} className="flex-1 py-3 rounded-xl text-sm font-semibold bg-secondary hover:opacity-80">Отмена</button>
           <button onClick={confirm} disabled={loading}
             className="flex-1 py-3 rounded-xl text-sm font-bold disabled:opacity-60"
-            style={{ background: "hsl(30,100%,50%)", color: "white" }}>
-            {loading ? "…" : "Архивировать"}
+            style={{ background: isDelete ? "hsl(0,80%,60%)" : "hsl(30,100%,50%)", color: "white" }}>
+            {loading ? "…" : isDelete ? "Удалить навсегда" : "Архивировать"}
           </button>
         </div>
       </div>

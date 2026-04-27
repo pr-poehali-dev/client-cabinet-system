@@ -219,7 +219,7 @@ export default function ProjectsPage({ user }: ProjectsPageProps) {
 
       {showCreate && <ProjectModal onClose={() => setShowCreate(false)} onSaved={load} />}
       {editProject && <ProjectModal initial={editProject} onClose={() => setEditProject(null)} onSaved={load} />}
-      {archiveProject && <ArchiveConfirm project={archiveProject} onClose={() => setArchiveProject(null)} onDone={load} />}
+      {archiveProject && <ArchiveConfirm project={archiveProject} onClose={() => setArchiveProject(null)} onDone={load} isAdmin={user?.role_code === "admin"} />}
       {membersProject && <MembersModal project={membersProject} onClose={() => setMembersProject(null)} onChanged={load} />}
       {joinProject && <JoinRequestModal project={joinProject} onClose={() => setJoinProject(null)} />}
     </div>
