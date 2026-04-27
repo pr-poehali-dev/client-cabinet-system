@@ -69,6 +69,43 @@ def handler(event: dict, context) -> dict:
 
     cur = conn.cursor()
 
+    # ── GET: участники проекта ────────────────────────────────────────────────
+    if method == "GET":
+        qs = event.get("queryStringParameters") or {}
+        ga = qs.get("action", "")
+
+        if ga == "members":
+            project_id = qs.get("project_id")
+            if not project_id:
+                conn.close()
+                return err("Укажите project_id")
+            # Участники проекта
+            cur.execute(f"""
+                SELECT u.id, u.full_name, u.login, r.name, r.code, u.is_active, u.last_login_at
+                FROM {SCHEMA}.users u
+                JOIN {SCHEMA}.roles r ON r.id = u.role_id
+                WHERE u.object_id = %s
+                ORDER BY r.id, u.full_name
+            """, (project_id,))
+            members = cur.fetchall()
+            # Все доступные пользователи без привязки к объекту (роли не глобальные)
+            cur.execute(f"""
+                SELECT u.id, u.full_name, u.login, r.name, r.code
+                FROM {SCHEMA}.users u
+                JOIN {SCHEMA}.roles r ON r.id = u.role_id
+                WHERE u.object_id IS NULL
+                  AND r.has_global_access = FALSE
+                  AND u.is_active = TRUE
+                  AND r.code != 'admin'
+                ORDER BY r.id, u.full_name
+            """)
+            available = cur.fetchall()
+            conn.close()
+            return ok({
+                "members": [{"id": r[0], "full_name": r[1], "login": r[2], "role_name": r[3], "role_code": r[4], "is_active": r[5], "last_login_at": str(r[6]) if r[6] else None} for r in members],
+                "available": [{"id": r[0], "full_name": r[1], "login": r[2], "role_name": r[3], "role_code": r[4]} for r in available],
+            })
+
     # ── GET: список проектов ──────────────────────────────────────────────────
     if method == "GET":
         cur.execute(f"""
@@ -169,6 +206,49 @@ def handler(event: dict, context) -> dict:
             VALUES (%s, 'archive_project', %s, %s)
         """, (user["id"], f"Архивирован проект id={project_id}", datetime.now(timezone.utc)))
 
+        conn.commit()
+        conn.close()
+        return ok({"ok": True})
+
+    # ── POST: добавить участника в проект ────────────────────────────────────
+    if action == "add_member":
+        project_id = body.get("project_id")
+        user_id = body.get("user_id")
+        if not project_id or not user_id:
+            conn.close()
+            return err("Укажите project_id и user_id")
+        # Проверяем что пользователь не глобальный
+        cur.execute(f"""
+            SELECT r.has_global_access FROM {SCHEMA}.users u
+            JOIN {SCHEMA}.roles r ON r.id = u.role_id WHERE u.id = %s
+        """, (user_id,))
+        row = cur.fetchone()
+        if not row:
+            conn.close()
+            return err("Пользователь не найден")
+        if row[0]:
+            conn.close()
+            return err("Пользователь с глобальным доступом не привязывается к объекту")
+        cur.execute(f"UPDATE {SCHEMA}.users SET object_id = %s WHERE id = %s", (project_id, user_id))
+        cur.execute(f"""
+            INSERT INTO {SCHEMA}.activity_log (user_id, action, detail, created_at)
+            VALUES (%s, 'add_member', %s, %s)
+        """, (user["id"], f"Добавлен участник user_id={user_id} в проект id={project_id}", datetime.now(timezone.utc)))
+        conn.commit()
+        conn.close()
+        return ok({"ok": True})
+
+    # ── POST: убрать участника из проекта ────────────────────────────────────
+    if action == "remove_member":
+        user_id = body.get("user_id")
+        if not user_id:
+            conn.close()
+            return err("Укажите user_id")
+        cur.execute(f"UPDATE {SCHEMA}.users SET object_id = NULL WHERE id = %s", (user_id,))
+        cur.execute(f"""
+            INSERT INTO {SCHEMA}.activity_log (user_id, action, detail, created_at)
+            VALUES (%s, 'remove_member', %s, %s)
+        """, (user["id"], f"Удалён участник user_id={user_id} из проекта", datetime.now(timezone.utc)))
         conn.commit()
         conn.close()
         return ok({"ok": True})
