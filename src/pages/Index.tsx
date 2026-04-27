@@ -13,8 +13,14 @@ import {
   ServicesSection,
   NotificationsSection,
 } from "./cabinet/ContentSections";
+import { User } from "./Login";
 
-export default function Index() {
+interface IndexProps {
+  user: User;
+  onLogout: () => void;
+}
+
+export default function Index({ user, onLogout }: IndexProps) {
   const [active, setActive] = useState<Section>("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [theme, setTheme] = useState<"dark" | "light">("dark");
@@ -50,6 +56,8 @@ export default function Index() {
         sidebarOpen={sidebarOpen}
         setActive={setActive}
         setSidebarOpen={setSidebarOpen}
+        user={user}
+        onLogout={onLogout}
       />
 
       <main className="flex-1 flex flex-col overflow-hidden">
@@ -79,8 +87,12 @@ export default function Index() {
             >
               <Icon name={theme === "dark" ? "Sun" : "Moon"} size={18} />
             </button>
-            <button className="p-2 rounded-xl hover:bg-secondary transition-colors">
-              <Icon name="Search" size={18} />
+            <button
+              className="p-2 rounded-xl hover:bg-secondary transition-colors"
+              onClick={onLogout}
+              title="Выйти"
+            >
+              <Icon name="LogOut" size={18} />
             </button>
           </div>
         </header>

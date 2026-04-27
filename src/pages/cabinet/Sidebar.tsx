@@ -1,14 +1,21 @@
 import Icon from "@/components/ui/icon";
 import { NAV_ITEMS, Section } from "./data";
+import { User } from "../Login";
 
 interface SidebarProps {
   active: Section;
   sidebarOpen: boolean;
   setActive: (s: Section) => void;
   setSidebarOpen: (v: boolean) => void;
+  user: User;
+  onLogout: () => void;
 }
 
-export default function Sidebar({ active, sidebarOpen, setActive, setSidebarOpen }: SidebarProps) {
+function getInitials(name: string) {
+  return name.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase();
+}
+
+export default function Sidebar({ active, sidebarOpen, setActive, setSidebarOpen, user, onLogout }: SidebarProps) {
   return (
     <aside
       className={`
@@ -93,17 +100,21 @@ export default function Sidebar({ active, sidebarOpen, setActive, setSidebarOpen
       <div className="p-4 border-t border-border">
         <div className="flex items-center gap-3">
           <div
-            className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold"
+            className="w-9 h-9 rounded-full flex-shrink-0 flex items-center justify-center text-sm font-bold"
             style={{ background: "linear-gradient(135deg, hsl(195,100%,50%), hsl(265,90%,65%))", color: "hsl(220,20%,6%)" }}
           >
-            ИВ
+            {getInitials(user.full_name)}
           </div>
           <div className="flex-1 min-w-0">
-            <div className="text-sm font-semibold truncate">Иван Владимиров</div>
-            <div className="text-xs text-muted-foreground">Заказчик</div>
+            <div className="text-sm font-semibold truncate">{user.full_name}</div>
+            <div className="text-xs text-muted-foreground truncate">{user.role_name}</div>
           </div>
-          <button className="p-1.5 rounded-lg hover:bg-secondary transition-colors">
-            <Icon name="Settings" size={15} className="text-muted-foreground" />
+          <button
+            onClick={onLogout}
+            title="Выйти"
+            className="p-1.5 rounded-lg hover:bg-secondary transition-colors"
+          >
+            <Icon name="LogOut" size={15} className="text-muted-foreground" />
           </button>
         </div>
       </div>

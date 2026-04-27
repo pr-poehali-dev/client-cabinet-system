@@ -1,0 +1,28 @@
+{
+  "tests": [
+    {
+      "name": "Login — wrong password",
+      "method": "POST",
+      "path": "/",
+      "body": {"action": "login", "login": "admin", "password": "wrong"},
+      "expectedStatus": 401,
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Login — success admin",
+      "method": "POST",
+      "path": "/",
+      "body": {"action": "login", "login": "admin", "password": "admin123"},
+      "expectedStatus": 200,
+      "expectedBody": {"user": {"role_code": "admin"}},
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Me — no session",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 401,
+      "bodyMatcher": "partial"
+    }
+  ]
+}
